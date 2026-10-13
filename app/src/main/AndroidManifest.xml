@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Morse Horror" android:allowBackup="false" android:supportsRtl="true">
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="KG App" android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
