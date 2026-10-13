@@ -1,16 +1,16 @@
-# KG App — Android Studio project
+# KG App — Updated Android Studio source
 
 Includes the supplied horror image and `music_kg.mp3`.
 
 ## Behavior
 - App label: **KG App**.
-- On first launch, Android's **Display over other apps** settings page opens. The user must grant access manually or return; Android does not permit an app to grant itself this permission.
-- After returning from Settings, the app opens the supplied image full-screen and plays the supplied music in a loop.
-- Morse instructions remain hidden until the user performs three quick two-finger taps, one finger landing over each eye on the image.
-- After reveal, a tap shorter than 700 ms enters a dot; holding for at least 3 seconds enters a dash. The unlock sequence is K then G (`-.-` + `--.`), represented as `-.---.`.
-- Five seconds idle resets the entered code.
-- On success, music stops and the activity closes.
-- The app does **not** display a forced overlay over other apps or prevent leaving with Android navigation. Overlay permission is requested because it was part of the requested setup, but it is not used to trap or cover other apps.
+- On first launch, asks Android to open this app's own **Display over other apps** settings page using its package URI. Android/OEM settings may still route to a broader settings screen; the user must grant permission manually.
+- After returning from settings, the image appears full-screen **inside KG App**.
+- Morse instructions stay hidden until three two-finger taps land on both eyes.
+- After reveal, a short tap enters a dot and a left-to-right swipe anywhere on the image enters a dash.
+- The code is K followed by G (`-.- --.`), represented as `-.---.`. Five seconds without input resets the code.
+- Music runs in a foreground service and continues when the activity is closed. A persistent notification provides a **Stop music** action. Correct Morse input stops the music and closes KG App.
+- The app intentionally does not force a persistent image overlay over other apps or the home screen, and it does not prevent normal Android navigation.
 
 ## Build
 Open this folder in Android Studio and allow Gradle sync. Select **Build > Build APK(s)**. The project uses Android Gradle Plugin 8.6.1 and compile SDK 35; install the requested SDK components if prompted.

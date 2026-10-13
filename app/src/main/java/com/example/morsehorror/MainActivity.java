@@ -15,28 +15,29 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.media.MediaPlayer;
+import android.widget.Toast;
 import android.os.Handler;
 import android.os.Looper;
 
 public class MainActivity extends Activity {
     private static final String TARGET = "-.---."; // K (-.-) followed by G (--.)
     private static final long RESET_AFTER_MS = 5000L;
-    private static final long DASH_MS = 3000L;
     private static final int OVERLAY_SETTINGS_REQUEST = 441;
+    private static final float SWIPE_THRESHOLD_DP = 80f;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final StringBuilder entered = new StringBuilder();
     private long downAt;
     private long lastInputAt;
-    private MediaPlayer player;
+    private float downX, downY;
     private TextView hint;
     private ImageView image;
     private Runnable resetRunnable;
     private boolean challengeRevealed = false;
     private int eyeTapCount = 0;
     private long lastEyeTapAt = 0;
-    private boolean settingsOpened = false;
+    private boolean settingsRequested = false;
+    private boolean musicStarted = false;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -44,11 +45,10 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.BLACK);
         getWindow().setNavigationBarColor(Color.BLACK);
 
-        // Android requires the user to grant overlay access manually in system settings.
-        // We open that settings page once on launch, but never use an overlay to trap the user.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this) && !settingsOpened) {
-            settingsOpened = true;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this) && !settingsRequested) {
+            settingsRequested = true;
             try {
+                // The package URI asks Android to show this app's own overlay-permission page.
                 Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                         Uri.parse("package:" + getPackageName()));
                 startActivityForResult(intent, OVERLAY_SETTINGS_REQUEST);
@@ -65,7 +65,15 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (settingsOpened && image == null) showHorrorScreen();
+        if (settingsRequested && image == null) showHorrorScreen();
+    }
+
+    private void startMusicIfNeeded() {
+        if (musicStarted) return;
+        musicStarted = true;
+        Intent intent = new Intent(this, MusicService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
+        else startService(intent);
     }
 
     private void showHorrorScreen() {
@@ -73,9 +81,8 @@ public class MainActivity extends Activity {
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         image = new ImageView(this);
-        try {
-            image.setImageBitmap(BitmapFactory.decodeStream(getAssets().open("horror.png")));
-        } catch (Exception ignored) { }
+        try { image.setImageBitmap(BitmapFactory.decodeStream(getAssets().open("horror.png"))); }
+        catch (Exception ignored) { }
         image.setScaleType(ImageView.ScaleType.CENTER_CROP);
         root.addView(image, new FrameLayout.LayoutParams(-1, -1));
 
@@ -91,46 +98,42 @@ public class MainActivity extends Activity {
         hp.setMargins(18, 0, 18, 22);
         root.addView(hint, hp);
         setContentView(root);
+        startMusicIfNeeded();
 
-        image.setOnTouchListener(new View.OnTouchListener() {
-            @Override public boolean onTouch(View v, MotionEvent event) {
-                if (!challengeRevealed) {
-                    handleSecretEyeGesture(v, event);
-                    return true;
-                }
-                if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                    downAt = System.currentTimeMillis();
-                    return true;
-                }
-                if (event.getAction() == MotionEvent.ACTION_UP) {
-                    long duration = System.currentTimeMillis() - downAt;
-                    if (duration >= DASH_MS) addSymbol('-');
-                    else if (duration < 700L) addSymbol('.');
-                    else hint.setText("Tap briefly for dot; hold for 3 seconds for dash.\n" + entered);
-                    return true;
-                }
-                if (event.getAction() == MotionEvent.ACTION_CANCEL) {
-                    downAt = 0;
-                    return true;
-                }
+        image.setOnTouchListener((v, event) -> {
+            if (!challengeRevealed) {
+                handleSecretEyeGesture(v, event);
                 return true;
             }
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downAt = System.currentTimeMillis();
+                    downX = event.getX();
+                    downY = event.getY();
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    float dx = event.getX() - downX;
+                    float dy = event.getY() - downY;
+                    float threshold = SWIPE_THRESHOLD_DP * getResources().getDisplayMetrics().density;
+                    long duration = System.currentTimeMillis() - downAt;
+                    if (dx >= threshold && Math.abs(dx) > Math.abs(dy) * 1.2f) {
+                        addSymbol('-'); // left-to-right swipe is dash
+                    } else if (Math.abs(dx) < threshold / 2 && Math.abs(dy) < threshold / 2 && duration < 700L) {
+                        addSymbol('.'); // short tap is dot
+                    }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    downAt = 0;
+                    return true;
+                default:
+                    return true;
+            }
         });
-
-        try {
-            player = new MediaPlayer();
-            player.setDataSource(getAssets().openFd("music_kg.mp3"));
-            player.setLooping(true);
-            player.setOnPreparedListener(mp -> mp.start());
-            player.prepareAsync();
-        } catch (Exception e) {
-            if (player != null) { player.release(); player = null; }
-        }
     }
 
-    // Reveal Morse instructions only after three two-finger taps landing on both eyes.
+    // Reveal the Morse challenge only after three two-finger taps landing on both eyes.
     private void handleSecretEyeGesture(View v, MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_POINTER_UP || event.getPointerCount() != 2) return;
+        if (event.getActionMasked() != MotionEvent.ACTION_POINTER_UP || event.getPointerCount() != 2) return;
         int lifted = event.getActionIndex();
         int other = lifted == 0 ? 1 : 0;
         float x1 = event.getX(lifted) / Math.max(1f, v.getWidth());
@@ -149,7 +152,7 @@ public class MainActivity extends Activity {
             if (eyeTapCount >= 3) {
                 challengeRevealed = true;
                 hint.setVisibility(View.VISIBLE);
-                hint.setText("TAP = DOT  •  HOLD 3s = DASH\nEnter K then G to exit\n5 seconds idle resets the code");
+                hint.setText("Tap = dot • Swipe left to right = dash\nEnter K then G to exit\n5 seconds idle resets the code");
             }
         } else {
             eyeTapCount = 0;
@@ -163,11 +166,13 @@ public class MainActivity extends Activity {
         lastInputAt = now;
         entered.append(symbol);
         if (entered.length() > TARGET.length()) entered.delete(0, entered.length() - TARGET.length());
-        hint.setText("Code: " + entered + "\nTap = dot • hold 3s = dash\n5 seconds idle resets");
+        hint.setText("Code: " + entered + "\nTap = dot • swipe left to right = dash\n5 seconds idle resets");
         if (entered.toString().equals(TARGET)) {
-            if (player != null) { try { player.stop(); } catch (Exception ignored) {} player.release(); player = null; }
             hint.setText("CODE ACCEPTED");
-            handler.postDelayed(this::finish, 500);
+            handler.postDelayed(() -> {
+                stopService(new Intent(this, MusicService.class));
+                finish();
+            }, 500);
             return;
         }
         if (resetRunnable != null) handler.removeCallbacks(resetRunnable);
@@ -175,22 +180,19 @@ public class MainActivity extends Activity {
             entered.setLength(0);
             lastInputAt = 0;
             if (!isFinishing() && hint != null && challengeRevealed)
-                hint.setText("Code reset.\nTAP = DOT  •  HOLD 3s = DASH\nEnter K then G");
+                hint.setText("Code reset.\nTap = dot • Swipe left to right = dash");
         };
         handler.postDelayed(resetRunnable, RESET_AFTER_MS);
     }
 
     @Override public void onBackPressed() {
-        // Keep the app normally escapable; leaving also stops its audio.
+        // Normal Android navigation remains available; the foreground notification controls background audio.
         super.onBackPressed();
     }
 
     @Override protected void onDestroy() {
         if (resetRunnable != null) handler.removeCallbacks(resetRunnable);
-        if (player != null) {
-            try { if (player.isPlaying()) player.stop(); } catch (Exception ignored) { }
-            player.release(); player = null;
-        }
+        // Deliberately do not stop the music service here; it continues until the user stops it or unlocks.
         super.onDestroy();
     }
 }
