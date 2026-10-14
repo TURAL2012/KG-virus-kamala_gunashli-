@@ -42,24 +42,6 @@ public class OverlayService extends Service {
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
             overlay.addView(image, new FrameLayout.LayoutParams(-1, -1));
 
-            TextView close = new TextView(this);
-            close.setText("×");
-            close.setTextColor(Color.WHITE);
-            close.setTextSize(34);
-            close.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            close.setGravity(Gravity.CENTER);
-            close.setContentDescription("Close photo overlay");
-            GradientDrawable background = new GradientDrawable();
-            background.setColor(0xDD111111);
-            background.setShape(GradientDrawable.OVAL);
-            background.setStroke(dp(1), 0xFFFFFFFF);
-            close.setBackground(background);
-            int size = dp(56);
-            FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(size, size, Gravity.TOP | Gravity.END);
-            closeParams.setMargins(0, dp(20), dp(12), 0);
-            overlay.addView(close, closeParams);
-            close.setOnClickListener(v -> closeOverlay());
-
             int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
