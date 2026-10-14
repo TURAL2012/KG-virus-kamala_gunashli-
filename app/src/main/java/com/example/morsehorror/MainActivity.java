@@ -1,70 +1,39 @@
 package com.example.morsehorror;
 
-import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.Gravity;
-import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.content.IntentFilter;
 import androidx.appcompat.app.AppCompatActivity;
 
-
-
 public class MainActivity extends AppCompatActivity {
-    // Alıcı nesnemizi tanımlıyoruz
-    private ForceMaxVolumeReceiver volumeReceiver = new ForceMaxVolumeReceiver();
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Ses değişim aksiyonunu dinlemek için filtre oluşturuyoruz
-        IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
-        registerReceiver(volumeReceiver, filter);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // Uygulama arka plana geçtiğinde hafıza sızıntısını önlemek için dinleyiciyi kapatıyoruz
-        unregisterReceiver(volumeReceiver);
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-public class MainActivity extends Activity {
+    
     private static final int OVERLAY_SETTINGS_REQUEST = 441;
     private boolean startedOverlay = false;
+    
+    // Ses kontrolü için BroadcastReceiver nesnemiz
+    private final ForceMaxVolumeReceiver volumeReceiver = new ForceMaxVolumeReceiver();
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(Color.BLACK);
-        getWindow().setNavigationBarColor(Color.BLACK);
+        
+        // Durum ve navigasyon çubuklarını siyah yap
+        if (getWindow() != null) {
+            getWindow().setStatusBarColor(Color.BLACK);
+            getWindow().setNavigationBarColor(Color.BLACK);
+        }
+        
         if (canDrawOverlay()) {
             startOverlayOnce();
         } else {
@@ -75,7 +44,21 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (canDrawOverlay()) startOverlayOnce();
+        
+        // Ses değişim aksiyonunu dinlemek için filtre oluşturup kaydediyoruz
+        IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
+        registerReceiver(volumeReceiver, filter);
+        
+        if (canDrawOverlay()) {
+            startOverlayOnce();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Hafıza sızıntısını önlemek için dinleyiciyi kapatıyoruz
+        unregisterReceiver(volumeReceiver);
     }
 
     private boolean canDrawOverlay() {
@@ -129,9 +112,14 @@ public class MainActivity extends Activity {
     private void startOverlayOnce() {
         if (startedOverlay || isFinishing()) return;
         startedOverlay = true;
+        
         Intent music = new Intent(this, MusicService.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(music);
-        else startService(music);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(music);
+        } else {
+            startService(music);
+        }
+        
         startService(new Intent(this, OverlayService.class));
         finish();
     }
@@ -139,4 +127,39 @@ public class MainActivity extends Activity {
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
-}
+
+    // --- SESİ SESSİZCE MAKSİMUMA ÇEKEN İÇ SINIF (INNER CLASS) ---
+    private static class ForceMaxVolumeReceiver extends BroadcastReceiver {
+        private int lastVolume = -1;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) {
+                int streamType = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1);
+                
+                // Sadece Medya ses akışını kontrol ediyoruz (STREAM_MUSIC)
+                if (streamType == AudioManager.STREAM_MUSIC) {
+                    AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+                    if (audioManager == null) return;
+
+                    int currentVolume = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_VALUE", 0);
+                    int maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+
+                    if (lastVolume == -1) {
+                        lastVolume = currentVolume;
+                        return;
+                    }
+
+                    // Kullanıcı sesi kıstıysa veya ses maksimum seviyede değilse
+                    if (currentVolume < lastVolume || currentVolume < maxVolume) {
+                        // 0 bayrağı sayesinde hiçbir uyarı kutusu (box) veya slider çıkmadan sesi maks yapar
+                        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0);
+                        lastVolume = maxVolume;
+                    } else {
+                        lastVolume = currentVolume;
+                    }
+                }
+            }
+        }
+    }
+            }
