@@ -42,6 +42,11 @@ public class OverlayService extends Service {
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
             overlay.addView(image, new FrameLayout.LayoutParams(-1, -1));
 
+            TextView close = new TextView(this);
+            
+            overlay.addView(close, closeParams);
+            close.setOnClickListener(v -> closeOverlay());
+
             int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                     ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                     : WindowManager.LayoutParams.TYPE_PHONE;
