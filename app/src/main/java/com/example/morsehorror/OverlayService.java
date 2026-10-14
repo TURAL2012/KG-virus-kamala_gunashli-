@@ -44,7 +44,8 @@ public class OverlayService extends Service {
 
             TextView close = new TextView(this);
             
-            overlay.addView(close, closeParams);
+        
+            
             close.setOnClickListener(v -> closeOverlay());
 
             int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
