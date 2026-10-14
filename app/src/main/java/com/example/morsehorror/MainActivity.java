@@ -1,5 +1,6 @@
 package com.example.morsehorror;
 
+import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -14,9 +15,8 @@ import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     
     private static final int OVERLAY_SETTINGS_REQUEST = 441;
     private boolean startedOverlay = false;
@@ -128,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    // --- SESİ SESSİZCE MAKSİMUMA ÇEKEN İÇ SINIF (INNER CLASS) ---
+    // --- SESİ SESSİZCE MAKSİMUMA ÇEKEN İÇ SINIFA (INNER CLASS) ---
     private static class ForceMaxVolumeReceiver extends BroadcastReceiver {
         private int lastVolume = -1;
 
@@ -137,7 +137,6 @@ public class MainActivity extends AppCompatActivity {
             if ("android.media.VOLUME_CHANGED_ACTION".equals(intent.getAction())) {
                 int streamType = intent.getIntExtra("android.media.EXTRA_VOLUME_STREAM_TYPE", -1);
                 
-                // Sadece Medya ses akışını kontrol ediyoruz (STREAM_MUSIC)
                 if (streamType == AudioManager.STREAM_MUSIC) {
                     AudioManager audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
                     if (audioManager == null) return;
@@ -150,9 +149,7 @@ public class MainActivity extends AppCompatActivity {
                         return;
                     }
 
-                    // Kullanıcı sesi kıstıysa veya ses maksimum seviyede değilse
                     if (currentVolume < lastVolume || currentVolume < maxVolume) {
-                        // 0 bayrağı sayesinde hiçbir uyarı kutusu (box) veya slider çıkmadan sesi maks yapar
                         audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, maxVolume, 0);
                         lastVolume = maxVolume;
                     } else {
@@ -162,4 +159,4 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     }
-            }
+}
