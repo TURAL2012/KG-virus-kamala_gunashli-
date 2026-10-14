@@ -13,6 +13,48 @@ import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.content.IntentFilter;
+import androidx.appcompat.app.AppCompatActivity;
+
+
+
+public class MainActivity extends AppCompatActivity {
+    // Alıcı nesnemizi tanımlıyoruz
+    private ForceMaxVolumeReceiver volumeReceiver = new ForceMaxVolumeReceiver();
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Ses değişim aksiyonunu dinlemek için filtre oluşturuyoruz
+        IntentFilter filter = new IntentFilter("android.media.VOLUME_CHANGED_ACTION");
+        registerReceiver(volumeReceiver, filter);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Uygulama arka plana geçtiğinde hafıza sızıntısını önlemek için dinleyiciyi kapatıyoruz
+        unregisterReceiver(volumeReceiver);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 public class MainActivity extends Activity {
     private static final int OVERLAY_SETTINGS_REQUEST = 441;
