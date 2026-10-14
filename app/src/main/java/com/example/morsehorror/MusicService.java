@@ -29,20 +29,32 @@ public class MusicService extends Service {
     @Override public void onCreate() {
         super.onCreate();
         createChannel();
+
         Intent stopIntent = new Intent(this, MusicService.class).setAction(ACTION_STOP);
-        PendingIntent stopPending = PendingIntent.getService(this, 1, stopIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+        PendingIntent stopPending = PendingIntent.getService(
+                this, 1, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT
+                        | (Build.VERSION.SDK_INT >= 23 ? PendingIntent.FLAG_IMMUTABLE : 0));
+
         Notification.Builder builder = Build.VERSION.SDK_INT >= 26
-                ? new Notification.Builder(this, CHANNEL_ID) : new Notification.Builder(this);
+                ? new Notification.Builder(this, CHANNEL_ID)
+                : new Notification.Builder(this);
+
         Notification notification = builder
                 .setContentTitle("KG App is playing music")
                 .setContentText("Tap Stop to stop the background music")
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setOngoing(true)
-                .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause, "Stop music", stopPending).build())
+                .addAction(new Notification.Action.Builder(
+                        android.R.drawable.ic_media_pause, "Stop music", stopPending).build())
                 .build();
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-        else startForeground(NOTIFICATION_ID, notification);
+
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+        } else {
+            startForeground(NOTIFICATION_ID, notification);
+        }
 
         try {
             android.content.res.AssetFileDescriptor afd = getAssets().openFd("music_kg.mp3");
@@ -69,9 +81,9 @@ public class MusicService extends Service {
                 if (player == null) return;
                 float progress = Math.min(1f,
                         (float) (SystemClock.uptimeMillis() - rampStartedAt) / RAMP_DURATION_MS);
-                // Gradually raises this app's playback volume, not the phone's system volume.
                 float volume = progress * progress;
                 try {
+                    // Ramps this app's playback volume; does not override the phone's volume controls.
                     player.setVolume(volume, volume);
                 } catch (IllegalStateException ignored) {
                     return;
@@ -100,7 +112,8 @@ public class MusicService extends Service {
 
     private void createChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "KG App music", NotificationManager.IMPORTANCE_LOW);
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID, "KG App music", NotificationManager.IMPORTANCE_LOW);
             channel.setDescription("Controls for KG App background music");
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
